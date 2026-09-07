@@ -1,7 +1,9 @@
 const Alert = require('../models/Alert');
 const Incident = require('../models/Incident');
+const { autoSeedIfEmpty } = require('../utils/autoSeed');
 
 const getOverview = async (dateRange = 'LAST_7_DAYS') => {
+  await autoSeedIfEmpty();
   const dateFilter = getDateFilter(dateRange);
 
   const [totalAlerts, criticalCount, highCount, mediumCount, lowCount, openIncidents, resolvedIncidents] = await Promise.all([

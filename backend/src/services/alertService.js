@@ -128,7 +128,10 @@ const processPrediction = async (predictionData) => {
   }
 };
 
+const { autoSeedIfEmpty } = require('../utils/autoSeed');
+
 const getAlerts = async (query = {}) => {
+  await autoSeedIfEmpty();
   const page = parseInt(query.page) || 1;
   const limit = parseInt(query.limit) || 10;
   const skip = (page - 1) * limit;

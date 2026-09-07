@@ -17,7 +17,10 @@ class ThreatIntelProvider {
   }
 }
 
+const { autoSeedIfEmpty } = require('../utils/autoSeed');
+
 const getThreatIntelOverview = async () => {
+  await autoSeedIfEmpty();
   const [total, internalObserved, externalEnriched, criticalCount, highCount] = await Promise.all([
     ThreatIntelligence.countDocuments(),
     ThreatIntelligence.countDocuments({ isExternalEnriched: false }),
