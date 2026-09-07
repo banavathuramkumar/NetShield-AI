@@ -106,8 +106,7 @@ const alertSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true,
-    bufferCommands: false
+    timestamps: true
   }
 );
 

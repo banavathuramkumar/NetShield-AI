@@ -3,7 +3,6 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    mongoose.set('bufferCommands', false);
     const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/netshield_ai', {
       serverSelectionTimeoutMS: 5000,
     });
