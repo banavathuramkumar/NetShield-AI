@@ -8,6 +8,7 @@ const connectDB = async () => {
     return;
   }
   try {
+    mongoose.set('bufferCommands', false);
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/netshield_ai', {
       serverSelectionTimeoutMS: 5000
     });
