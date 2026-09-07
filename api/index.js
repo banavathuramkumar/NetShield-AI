@@ -1,7 +1,23 @@
 const app = require('../backend/src/app');
-const connectDB = require('../backend/src/config/db');
+const mongoose = require('mongoose');
 
-// Ensure MongoDB Atlas connection is initialized for Vercel Serverless Function
-connectDB();
+let isConnected = false;
 
-module.exports = app;
+const connectDB = async () => {
+  if (isConnected || mongoose.connection.readyState >= 1) {
+    return;
+  }
+  try {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/netshield_ai', {
+      serverSelectionTimeoutMS: 5000
+    });
+    isConnected = true;
+  } catch (err) {
+    console.error('Vercel Serverless MongoDB Error:', err.message);
+  }
+};
+
+module.exports = async (req, res) => {
+  await connectDB();
+  return app(req, res);
+};
