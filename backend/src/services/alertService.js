@@ -128,91 +128,98 @@ const processPrediction = async (predictionData) => {
   }
 };
 
-const { autoSeedIfEmpty } = require('../utils/autoSeed');
+const { autoSeedIfEmpty, getFallbackAlerts } = require('../utils/autoSeed');
 
 const getAlerts = async (query = {}) => {
-  await autoSeedIfEmpty();
-  const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 10;
-  const skip = (page - 1) * limit;
+  try {
+    await autoSeedIfEmpty();
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-  const filter = {};
+    const filter = {};
 
-  if (query.severity) {
-    filter.severity = query.severity.toUpperCase();
-  }
-  if (query.status) {
-    filter.status = query.status.toUpperCase();
-  }
-  if (query.attackType) {
-    filter.attackType = new RegExp(query.attackType, 'i');
-  }
-  if (query.sourceIp) {
-    filter.sourceIp = new RegExp(query.sourceIp, 'i');
-  }
-  if (query.search) {
-    const searchRegex = new RegExp(query.search, 'i');
-    filter.$or = [
-      { alertId: searchRegex },
-      { attackType: searchRegex },
-      { sourceIp: searchRegex },
-      { destinationIp: searchRegex },
-      { description: searchRegex }
-    ];
-  }
-  if (query.dateFrom || query.dateTo) {
-    filter.timestamp = {};
-    if (query.dateFrom) filter.timestamp.$gte = new Date(query.dateFrom);
-    if (query.dateTo) filter.timestamp.$lte = new Date(query.dateTo);
-  }
-
-  const sort = {};
-  if (query.sortBy) {
-    sort[query.sortBy] = query.sortOrder === 'asc' ? 1 : -1;
-  } else {
-    sort.timestamp = -1;
-  }
-
-  const [data, total] = await Promise.all([
-    Alert.find(filter).sort(sort).skip(skip).limit(limit).lean(),
-    Alert.countDocuments(filter)
-  ]);
-
-  // Aggregate global counts for summary cards
-  const summaryAgg = await Alert.aggregate([
-    {
-      $group: {
-        _id: '$severity',
-        count: { $sum: 1 }
-      }
+    if (query.severity) {
+      filter.severity = query.severity.toUpperCase();
     }
-  ]);
-
-  const summary = {
-    total: await Alert.countDocuments(),
-    CRITICAL: 0,
-    HIGH: 0,
-    MEDIUM: 0,
-    LOW: 0,
-    INFO: 0,
-    unresolved: await Alert.countDocuments({ status: { $in: ['NEW', 'ACKNOWLEDGED', 'INVESTIGATING'] } }),
-    resolved: await Alert.countDocuments({ status: { $in: ['RESOLVED', 'CLOSED'] } })
-  };
-
-  summaryAgg.forEach(item => {
-    if (summary[item._id] !== undefined) {
-      summary[item._id] = item.count;
+    if (query.status) {
+      filter.status = query.status.toUpperCase();
     }
-  });
+    if (query.attackType) {
+      filter.attackType = new RegExp(query.attackType, 'i');
+    }
+    if (query.sourceIp) {
+      filter.sourceIp = new RegExp(query.sourceIp, 'i');
+    }
+    if (query.search) {
+      const searchRegex = new RegExp(query.search, 'i');
+      filter.$or = [
+        { alertId: searchRegex },
+        { attackType: searchRegex },
+        { sourceIp: searchRegex },
+        { destinationIp: searchRegex },
+        { description: searchRegex }
+      ];
+    }
+    if (query.dateFrom || query.dateTo) {
+      filter.timestamp = {};
+      if (query.dateFrom) filter.timestamp.$gte = new Date(query.dateFrom);
+      if (query.dateTo) filter.timestamp.$lte = new Date(query.dateTo);
+    }
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-    summary
-  };
+    const sort = {};
+    if (query.sortBy) {
+      sort[query.sortBy] = query.sortOrder === 'asc' ? 1 : -1;
+    } else {
+      sort.timestamp = -1;
+    }
+
+    const [data, total] = await Promise.all([
+      Alert.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Alert.countDocuments(filter)
+    ]);
+
+    if (total > 0) {
+      const summaryAgg = await Alert.aggregate([
+        {
+          $group: {
+            _id: '$severity',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const summary = {
+        total: await Alert.countDocuments(),
+        CRITICAL: 0,
+        HIGH: 0,
+        MEDIUM: 0,
+        LOW: 0,
+        INFO: 0,
+        unresolved: await Alert.countDocuments({ status: { $in: ['NEW', 'ACKNOWLEDGED', 'INVESTIGATING'] } }),
+        resolved: await Alert.countDocuments({ status: { $in: ['RESOLVED', 'CLOSED'] } })
+      };
+
+      summaryAgg.forEach(item => {
+        if (summary[item._id] !== undefined) {
+          summary[item._id] = item.count;
+        }
+      });
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        summary
+      };
+    }
+  } catch (err) {
+    console.error('getAlerts DB query error, using fallback alerts:', err.message);
+  }
+
+  return getFallbackAlerts(query);
 };
 
 const getAlertById = async (alertId) => {

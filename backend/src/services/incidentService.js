@@ -98,64 +98,72 @@ const createIncident = async (data = {}, user = {}) => {
   return incident;
 };
 
-const { autoSeedIfEmpty } = require('../utils/autoSeed');
+const { autoSeedIfEmpty, getFallbackIncidents } = require('../utils/autoSeed');
 
 const getIncidents = async (query = {}) => {
-  await autoSeedIfEmpty();
-  const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 10;
-  const skip = (page - 1) * limit;
+  try {
+    await autoSeedIfEmpty();
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-  const filter = {};
+    const filter = {};
 
-  if (query.status) {
-    filter.status = query.status.toUpperCase();
+    if (query.status) {
+      filter.status = query.status.toUpperCase();
+    }
+    if (query.severity) {
+      filter.severity = query.severity.toUpperCase();
+    }
+    if (query.priority) {
+      filter.priority = query.priority.toUpperCase();
+    }
+    if (query.assignedTo) {
+      filter.assignedTo = query.assignedTo;
+    }
+    if (query.search) {
+      const searchRegex = new RegExp(query.search, 'i');
+      filter.$or = [
+        { incidentId: searchRegex },
+        { title: searchRegex },
+        { description: searchRegex },
+        { attackTypes: searchRegex },
+        { sourceIps: searchRegex }
+      ];
+    }
+
+    const sort = { createdAt: -1 };
+
+    const [data, total] = await Promise.all([
+      Incident.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Incident.countDocuments(filter)
+    ]);
+
+    if (total > 0) {
+      const summary = {
+        total: await Incident.countDocuments(),
+        OPEN: await Incident.countDocuments({ status: 'OPEN' }),
+        ACKNOWLEDGED: await Incident.countDocuments({ status: 'ACKNOWLEDGED' }),
+        INVESTIGATING: await Incident.countDocuments({ status: 'INVESTIGATING' }),
+        CONTAINED: await Incident.countDocuments({ status: 'CONTAINED' }),
+        RESOLVED: await Incident.countDocuments({ status: 'RESOLVED' }),
+        CLOSED: await Incident.countDocuments({ status: 'CLOSED' })
+      };
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        summary
+      };
+    }
+  } catch (err) {
+    console.error('getIncidents DB query error, using fallback incidents:', err.message);
   }
-  if (query.severity) {
-    filter.severity = query.severity.toUpperCase();
-  }
-  if (query.priority) {
-    filter.priority = query.priority.toUpperCase();
-  }
-  if (query.assignedTo) {
-    filter.assignedTo = query.assignedTo;
-  }
-  if (query.search) {
-    const searchRegex = new RegExp(query.search, 'i');
-    filter.$or = [
-      { incidentId: searchRegex },
-      { title: searchRegex },
-      { description: searchRegex },
-      { attackTypes: searchRegex },
-      { sourceIps: searchRegex }
-    ];
-  }
 
-  const sort = { createdAt: -1 };
-
-  const [data, total] = await Promise.all([
-    Incident.find(filter).sort(sort).skip(skip).limit(limit).lean(),
-    Incident.countDocuments(filter)
-  ]);
-
-  const summary = {
-    total: await Incident.countDocuments(),
-    OPEN: await Incident.countDocuments({ status: 'OPEN' }),
-    ACKNOWLEDGED: await Incident.countDocuments({ status: 'ACKNOWLEDGED' }),
-    INVESTIGATING: await Incident.countDocuments({ status: 'INVESTIGATING' }),
-    CONTAINED: await Incident.countDocuments({ status: 'CONTAINED' }),
-    RESOLVED: await Incident.countDocuments({ status: 'RESOLVED' }),
-    CLOSED: await Incident.countDocuments({ status: 'CLOSED' })
-  };
-
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-    summary
-  };
+  return getFallbackIncidents(query);
 };
 
 const getIncidentById = async (incidentId) => {
