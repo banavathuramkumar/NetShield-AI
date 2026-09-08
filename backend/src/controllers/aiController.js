@@ -126,7 +126,7 @@ const testUpload = async (req, res) => {
       return res.status(503).json({ error: 'csv-parser module not installed.' });
     }
 
-    const fileObj = req.file || (req.files && req.files.dataset);
+    const fileObj = req.file || (Array.isArray(req.files) ? req.files[0] : (req.files && (req.files.dataset || req.files.file)));
     if (!fileObj) {
       return res.status(400).json({ error: 'No CSV file uploaded' });
     }

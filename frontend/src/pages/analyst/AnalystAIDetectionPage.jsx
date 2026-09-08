@@ -86,9 +86,9 @@ const AnalystAIDetectionPage = () => {
       const res = await api.post('/ai/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setCsvResult(res.data.data);
+      setCsvResult(res.data.report || res.data.data?.report || res.data.data || res.data);
     } catch (err) {
-      setCsvResult({ error: err.response?.data?.message || 'CSV upload failed' });
+      setCsvResult({ error: err.response?.data?.error || err.response?.data?.message || 'CSV upload failed' });
     } finally {
       setCsvUploading(false);
     }

@@ -24,8 +24,9 @@ router.get('/classification-report', aiController.getClassificationReport);
 router.get('/risk-score', aiController.getRiskScore);
 router.get('/model-status', aiController.getModelStatus);
 
-// New admin endpoint for uploading a dataset and testing the model
-router.post('/test-upload', protect, authorize('admin', 'analyst'), upload.single('dataset'), aiController.testUpload);
+// CSV Dataset Upload Endpoints (supports form fields 'file', 'dataset', etc.)
+router.post('/upload', protect, authorize('admin', 'analyst'), upload.any(), aiController.testUpload);
+router.post('/test-upload', protect, authorize('admin', 'analyst'), upload.any(), aiController.testUpload);
 
 // Protected Admin / Analyst Management Endpoints
 router.post('/train', protect, authorize('admin', 'analyst'), aiController.train);
